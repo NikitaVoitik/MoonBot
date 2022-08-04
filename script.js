@@ -6,11 +6,11 @@ async function getApiHacks(contestId, taskId, requiredTest){
 }
 
 async function getApiSubmissions(contestId, taskId, handle) {
-    const apiLink = `https://codeforces.com/api/contest.status?contestId=${contestId}&handle=${handle}&from=1&count=20`;
+    /*const apiLink = `https://codeforces.com/api/contest.status?contestId=${contestId}&handle=${handle}&from=1&count=100`;
     const response = await fetch(apiLink);
     let json = await response.json();
-    json = json.result;
-    checkTrueSolutions(taskId, contestId, handle, json)
+    json = json.result;*/
+    checkTrueSolutions(taskId, contestId, handle)
 }
 
 
@@ -34,16 +34,17 @@ const findZ = (requiredTest, taskId, contestId, json) =>{
             }
         }
     }
+    console.log("Find");
 }
 
 const checkTrueSolutions = (taskId, contestId, author, json) =>{
-    for(let i in json){
-        if (json[i].problem.index === taskId && json[i].verdict === 'OK'){
+    //for(let i in json){
+        //if (json[i].problem.index === taskId && json[i].verdict === 'OK'){
             let linkOnTasks = 'https://codeforces.com/contest/' + contestId + '/participant/' + author;
             links.insertAdjacentHTML('beforeend',
                 `<p><a href="${linkOnTasks}">Link</a></p>`);
-        }
-    }
+       // }
+    //}
 }
 
 const GetLinks = () => {
