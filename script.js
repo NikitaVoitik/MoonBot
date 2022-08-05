@@ -1,33 +1,54 @@
-async function getApiHacks(contestId, taskId, requiredTest){
+async function getApiHacks(contestId, taskId, requiredTest, requiredOutput) {
     const apiLink = 'https://codeforces.com/api/contest.hacks?contestId=' + contestId;
     const response = await fetch(apiLink);
     let json = await response.json();
-    findZ(requiredTest, taskId, contestId, json.result);
+    findZ(requiredTest, taskId, contestId, requiredOutput, json.result);
 }
+
 
 async function getApiSubmissions(contestId, taskId, handle) {
-    /*const apiLink = `https://codeforces.com/api/contest.status?contestId=${contestId}&handle=${handle}&from=1&count=100`;
+    const apiLink = `https://codeforces.com/api/contest.status?contestId=${contestId}&handle=${handle}&from=1&count=100`;
+    const t = localStorage.getItem('newApi');
+    while (t > Date.now()) {
+
+    }
+    console.log(t, Date.now());
+    localStorage.setItem('newApi', Date.now() + 500);
     const response = await fetch(apiLink);
-    let json = await response.json();
-    json = json.result;*/
-    checkTrueSolutions(taskId, contestId, handle)
+    if (response.ok) {
+        let json = await response.json();
+        json = json.result;
+        checkTrueSolutions(taskId, contestId, handle, json)
+    } else {
+        console.log('zalupa');
+        getApiSubmissions(contestId, taskId, handle);
+    }
 }
 
 
-const findZ = (requiredTest, taskId, contestId, json) =>{
+const findZ = (requiredTest, taskId, contestId, requiredOuput, json) => {
     const links = document.getElementById('links');
     links.innerHTML = '<p>Links:</p>';
-    for(let i in json){
-        if (json[i].verdict === 'HACK_SUCCESSFUL' && json[i].problem.index === taskId){
+    for (let i in json) {
+        if (json[i].verdict === 'HACK_SUCCESSFUL' && json[i].problem.index === taskId) {
             const solution = json[i].judgeProtocol.protocol;
-            const index = solution.indexOf('Input:', 0) + 7;
+            let index = solution.indexOf('Input:') + 7;
             let test = '';
-            for(let j = index; solution[j] !== 'O'; j++){
-                if (solution[j] !== ' ' && solution[j] !== '\n' && solution[j] !== '\r'){
-                    test+= solution[j];
+            let output = '';
+            for (let j = index; j < solution.indexOf('Output:'); j++) {
+                if (solution[j] !== ' ' && solution[j] !== '\n' && solution[j] !== '\r') {
+                    test += solution[j];
                 }
             }
-            if (test === requiredTest){
+            index = solution.indexOf('Output:', index) + 8;
+            let full = '';
+            for (let j = index; j < solution.indexOf('Answer:'); j++) {
+                full += solution[j];
+                if (solution[j] !== ' ' && solution[j] !== '\n' && solution[j] !== '\r') {
+                    output += solution[j];
+                }
+            }
+            if (test === requiredTest && output === requiredOuput) {
                 //https://codeforces.com/contest/891/participant/balakrishnan
                 const author = json[i].defender.members[0].handle;
                 getApiSubmissions(contestId, taskId, author);
@@ -37,25 +58,28 @@ const findZ = (requiredTest, taskId, contestId, json) =>{
     console.log("Find");
 }
 
-const checkTrueSolutions = (taskId, contestId, author, json) =>{
-    //for(let i in json){
-        //if (json[i].problem.index === taskId && json[i].verdict === 'OK'){
+const checkTrueSolutions = (taskId, contestId, author, json) => {
+    for (let i in json) {
+        if (json[i].problem.index === taskId && json[i].verdict === 'OK') {
             let linkOnTasks = 'https://codeforces.com/contest/' + contestId + '/participant/' + author;
             links.insertAdjacentHTML('beforeend',
                 `<p><a href="${linkOnTasks}">Link</a></p>`);
-       // }
-    //}
+        }
+    }
 }
 
 const GetLinks = () => {
+    console.log('Start');
+    localStorage.setItem('newApi', Date.now());
     let form = document.forms[0].elements;
-    getApiHacks(form[0].value, form[1].value, trimTask(form[2].value));
+    console.log(trimTask(form[2].value), trimTask(form[3].value));
+    getApiHacks(form[0].value, form[1].value, trimTask(form[2].value), trimTask(form[3].value));
 }
 
 const trimTask = (requiredTest) => {
     let buff = '';
-    for(let i in requiredTest){
-        if(requiredTest[i] !== ' '){
+    for (let i in requiredTest) {
+        if (requiredTest[i] !== ' ') {
             buff += requiredTest[i];
         }
     }
