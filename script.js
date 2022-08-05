@@ -2,6 +2,7 @@ async function getApiHacks(contestId, taskId, requiredTest, requiredOutput) {
     const apiLink = 'https://codeforces.com/api/contest.hacks?contestId=' + contestId;
     const response = await fetch(apiLink);
     let json = await response.json();
+
     findZ(requiredTest, taskId, contestId, requiredOutput, json.result);
 }
 
@@ -35,13 +36,14 @@ const findZ = (requiredTest, taskId, contestId, requiredOuput, json) => {
             let index = solution.indexOf('Input:') + 7;
             let test = '';
             let output = '';
+            let full = '';
+
             for (let j = index; j < solution.indexOf('Output:'); j++) {
                 if (solution[j] !== ' ' && solution[j] !== '\n' && solution[j] !== '\r') {
                     test += solution[j];
                 }
             }
             index = solution.indexOf('Output:', index) + 8;
-            let full = '';
             for (let j = index; j < solution.indexOf('Answer:'); j++) {
                 full += solution[j];
                 if (solution[j] !== ' ' && solution[j] !== '\n' && solution[j] !== '\r') {
@@ -72,7 +74,6 @@ const GetLinks = () => {
     console.log('Start');
     localStorage.setItem('newApi', Date.now());
     let form = document.forms[0].elements;
-    console.log(trimTask(form[2].value), trimTask(form[3].value));
     getApiHacks(form[0].value, form[1].value, trimTask(form[2].value), trimTask(form[3].value));
 }
 
