@@ -1,83 +1,153 @@
-async function getApiHacks(contestId, taskId, requiredTest, requiredOutput) {
-    const apiLink = 'https://codeforces.com/api/contest.hacks?contestId=' + contestId;
-    const response = await fetch(apiLink);
+function makeRequest(contestId, subId, firstCode, handle){
+    let link = `http://127.0.0.1:5000/get-sub?subId=${subId}&conId=${contestId}`;
+    let x = new XMLHttpRequest();
+    x.open("GET", link, false);
+    let code = '';
+    x.onload = function () {
+        code = ParseCode(x.responseText);
+        if (code === firstCode){
+            let links = document.getElementById('links');
+            let linkOnTasks = 'https://codeforces.com/contest/' + contestId + '/participant/' + handle;
+            links.insertAdjacentHTML('beforeend',
+                `<p><a href="${linkOnTasks}">Link</a></p>`);
+        }
+    }
+    x.send(null);
+}
+
+///http://127.0.0.1:5000/get-sub?subId=167447007&conId=1713
+let ParseCode = (responseText) => {
+    let str = responseText;
+    let start = str.indexOf('0.5em;">', 0) + 8;
+    let preCode = '';
+    for(let i = start; i < str.length; i++){
+        if(str[i] == '<' && str[i + 1] == '/' && str[i + 2] == 'p' && str[i + 3] == 'r' && str[i + 4] == 'e'){
+            break;
+        }
+        else{
+            preCode += str[i];
+        }
+    }
+    return deleteSymbols(MakeNormalCode(preCode));
+}
+
+let ParseSubmitID = (responseText) => {
+    let str = responseText;
+    let start = str.indexOf('submission/', 0);
+    let id = '';
+    for(let i = start + 11; i <= start + 50; i++){
+        if(str[i] === '"'){
+            break;
+        }
+        else{
+            id += str[i];
+        }
+    }
+    return id;
+}
+
+let CheckPos = (str, ind, Normal, Charcode) => {
+    for(let i in Charcode) {
+        if (ind == str.indexOf(Charcode[i], ind)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+let MakeNormalCode = (preCode) => {
+    let CharCode = ['&lt;', '&gt;', '&quot;', '&amp;', '&apos;', '&#39;'];
+    let Normal = ['<', '>', `"`, '&', `'`, `'`]; // 0..5
+    // 4 : &lt; &gt;
+    // 5 : &amp; &#39;
+    // 6 : &quot; &apos;
+    let str = preCode;
+    let code = '';
+    for(let i = 0; i < str.length; i++){
+        let ind = CheckPos(str, i, Normal, CharCode);
+        if(ind != -1) {
+            code += Normal[ind];
+            i+= CharCode[ind].length-1;
+        }
+        else {
+            code += str[i];
+        }
+    }
+    return code;
+}
+
+async function getApiHacks(contestId, taskId, requiredTest, firstCode) {
+    let apiLink = 'https://codeforces.com/api/contest.hacks?contestId=' + contestId;
+    let response = await fetch(apiLink);
     let json = await response.json();
 
-    findZ(requiredTest, taskId, contestId, requiredOutput, json.result);
+    findZ(requiredTest, taskId, contestId, firstCode, json.result);
 }
 
-
-async function getApiSubmissions(contestId, taskId, handle) {
-    const apiLink = `https://codeforces.com/api/contest.status?contestId=${contestId}&handle=${handle}&from=1&count=100`;
-    const t = localStorage.getItem('newApi');
-    while (t > Date.now()) {
-
+let deleteSymbols = (str) =>{
+    let s = '';
+    let mas = ['\t', '\n', '\r', ' '];
+    for(let i in str) {
+            let flag = 0;
+            for(let j in mas) {
+                if (str.indexOf(mas[j], i) == i) {
+                    flag = 1;
+                }
+            }
+            if(flag === 0){
+                s += str[i];
+            }
     }
-    console.log(t, Date.now());
-    localStorage.setItem('newApi', Date.now() + 500);
-    const response = await fetch(apiLink);
-    if (response.ok) {
-        let json = await response.json();
-        json = json.result;
-        checkTrueSolutions(taskId, contestId, handle, json)
-    } else {
-        console.log('zalupa');
-        getApiSubmissions(contestId, taskId, handle);
-    }
+    return s;
 }
 
+function makeRequestHack(contestId, hackId, firstCode, handle){
+    let link = `http://127.0.0.1:5000/get-hack?hackId=${hackId}&conId=${contestId}`;
+    let x = new XMLHttpRequest();
+    let code = '';
+    x.open("GET", link, false);
+    x.onload = function () {
+        code = ParseSubmitID(x.responseText);
+        makeRequest(contestId, code, firstCode, handle);
+    }
+    x.send(null);
+}
 
-const findZ = (requiredTest, taskId, contestId, requiredOuput, json) => {
-    const links = document.getElementById('links');
+let findZ = (requiredTest, taskId, contestId, firstCode, json) => {
+    let links = document.getElementById('links');
     links.innerHTML = '<p>Links:</p>';
+    let numb = 0;
     for (let i in json) {
         if (json[i].verdict === 'HACK_SUCCESSFUL' && json[i].problem.index === taskId) {
-            const solution = json[i].judgeProtocol.protocol;
+            let solution = json[i].judgeProtocol.protocol;
             let index = solution.indexOf('Input:') + 7;
             let test = '';
-            let output = '';
-            let full = '';
 
             for (let j = index; j < solution.indexOf('Output:'); j++) {
                 if (solution[j] !== ' ' && solution[j] !== '\n' && solution[j] !== '\r') {
                     test += solution[j];
                 }
             }
-            index = solution.indexOf('Output:', index) + 8;
-            for (let j = index; j < solution.indexOf('Answer:'); j++) {
-                full += solution[j];
-                if (solution[j] !== ' ' && solution[j] !== '\n' && solution[j] !== '\r') {
-                    output += solution[j];
-                }
-            }
-            if (test === requiredTest && output === requiredOuput) {
-                //https://codeforces.com/contest/891/participant/balakrishnan
-                const author = json[i].defender.members[0].handle;
-                getApiSubmissions(contestId, taskId, author);
+            if (test === requiredTest) {
+                let hackId = json[i].id;
+                let handle = json[i].defender.members[0].handle;
+                makeRequestHack(contestId, hackId, firstCode, handle);
             }
         }
     }
-    console.log("Find");
+    console.log('Find');
 }
 
-const checkTrueSolutions = (taskId, contestId, author, json) => {
-    for (let i in json) {
-        if (json[i].problem.index === taskId && json[i].verdict === 'OK') {
-            let linkOnTasks = 'https://codeforces.com/contest/' + contestId + '/participant/' + author;
-            links.insertAdjacentHTML('beforeend',
-                `<p><a href="${linkOnTasks}">Link</a></p>`);
-        }
-    }
-}
-
-const GetLinks = () => {
+let GetLinks = () => {
     console.log('Start');
-    localStorage.setItem('newApi', Date.now());
     let form = document.forms[0].elements;
-    getApiHacks(form[0].value, form[1].value, trimTask(form[2].value), trimTask(form[3].value));
+    let str = form[0].value;
+    let task = str[str.length - 1];
+    let contest = str.slice(0, str.length - 1);
+    getApiHacks(contest, task, trimTask(form[1].value), deleteSymbols(form[2].value));
 }
 
-const trimTask = (requiredTest) => {
+let trimTask = (requiredTest) => {
     let buff = '';
     for (let i in requiredTest) {
         if (requiredTest[i] !== ' ') {
@@ -86,19 +156,3 @@ const trimTask = (requiredTest) => {
     }
     return buff;
 }
-//"Solution verdict:\n
-// WRONG_ANSWER\n
-// \n
-// Checker:\n
-// wrong answer 1st numbers differ - expected: '3', found: '4'\r\n\n\n
-// Input:\n
-// 4\r\n
-// 2 6 9 1\r\n\n\n
-// Output:\n
-// 4\r\n\n\n
-// Answer:\n
-// 3\r\n\n\n
-// Time:\n
-// 15\n\n
-// Memory:\n
-// 12288\n",
