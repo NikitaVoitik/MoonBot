@@ -4,15 +4,23 @@ function makeRequest(contestId, subId, firstCode, handle){
     x.open("GET", link, false);
     let code = '';
     x.onload = function () {
+        //console.log(x.responseText);
         code = ParseCode(x.responseText);
+        //console.log('1', firstCode);
+        //console.log('2', code);
         if (code === firstCode){
             let links = document.getElementById('links');
             let linkOnTasks = 'https://codeforces.com/contest/' + contestId + '/participant/' + handle;
             links.insertAdjacentHTML('beforeend',
                 `<p><a href="${linkOnTasks}">Link</a></p>`);
+            console.log('1');
+            return true;
+        } else{
+            return false;
         }
     }
     x.send(null);
+    return false;
 }
 
 ///http://127.0.0.1:5000/get-sub?subId=167447007&conId=1713
@@ -20,8 +28,8 @@ let ParseCode = (responseText) => {
     let str = responseText;
     let start = str.indexOf('0.5em;">', 0) + 8;
     let preCode = '';
-    for(let i = start; i < str.length; i++){
-        if(str[i] == '<' && str[i + 1] == '/' && str[i + 2] == 'p' && str[i + 3] == 'r' && str[i + 4] == 'e'){
+    for(let i = start;; i++){
+        if(i == str.indexOf('</pre>', i)){
             break;
         }
         else{
@@ -108,9 +116,14 @@ function makeRequestHack(contestId, hackId, firstCode, handle){
     x.open("GET", link, false);
     x.onload = function () {
         code = ParseSubmitID(x.responseText);
-        makeRequest(contestId, code, firstCode, handle);
+        if (makeRequest(contestId, code, firstCode, handle)){
+            return true;
+        } else {
+            return false;
+        }
     }
     x.send(null);
+    return false;
 }
 
 let findZ = (requiredTest, taskId, contestId, firstCode, json) => {
@@ -131,7 +144,10 @@ let findZ = (requiredTest, taskId, contestId, firstCode, json) => {
             if (test === requiredTest) {
                 let hackId = json[i].id;
                 let handle = json[i].defender.members[0].handle;
-                makeRequestHack(contestId, hackId, firstCode, handle);
+                if (makeRequestHack(contestId, hackId, firstCode, handle)){
+                    console.log('2');
+                    break;
+                }
             }
         }
     }
